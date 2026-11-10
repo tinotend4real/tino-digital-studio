@@ -1,0 +1,236 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  CLIENT
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  PROPOSAL_SENT
+  WON
+  LOST
+}
+
+enum WebsiteStatus {
+  DEVELOPMENT
+  ACTIVE
+  PAUSED
+}
+
+enum ProjectStatus {
+  PLANNING
+  IN_PROGRESS
+  REVIEW
+  LIVE
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         Role     @default(CLIENT)
+  createdAt    DateTime @default(now())
+  client       Client?
+}
+
+model Client {
+  id        String          @id @default(cuid())
+  name      String
+  company   String?
+  phone     String?
+  createdAt DateTime        @default(now())
+  userId    String          @unique
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projects  ClientProject[]
+  tickets   Ticket[]
+  websites  Website[]
+  invoices  Invoice[]
+}
+
+model Service {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  summary     String
+  description String   @default("")
+  priceFrom   String?
+  category    String   @default("Web")
+  featured    Boolean  @default(false)
+  published   Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model PortfolioItem {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  clientName  String
+  industry    String   @default("")
+  description String   @default("")
+  challenge   String   @default("")
+  solution    String   @default("")
+  result      String   @default("")
+  tech        String   @default("")
+  liveUrl     String?
+  imageUrl    String?
+  isSample    Boolean  @default(true)
+  featured    Boolean  @default(false)
+  published   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Lead {
+  id              String     @id @default(cuid())
+  name            String
+  email           String
+  phone           String?
+  serviceInterest String?
+  message         String
+  status          LeadStatus @default(NEW)
+  notes           String     @default("")
+  createdAt       DateTime   @default(now())
+}
+
+model Website {
+  id           String        @id @default(cuid())
+  name         String
+  url          String?
+  hosting      String        @default("")
+  notes        String        @default("")
+  status       WebsiteStatus @default(DEVELOPMENT)
+  lastModified DateTime      @default(now())
+  createdAt    DateTime      @default(now())
+  clientId     String?
+  client       Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
+}
+
+model ClientProject {
+  id          String          @id @default(cuid())
+  name        String
+  description String          @default("")
+  status      ProjectStatus   @default(PLANNING)
+  createdAt   DateTime        @default(now())
+  clientId    String
+  client      Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  updates     ProjectUpdate[]
+}
+
+model ProjectUpdate {
+  id        String        @id @default(cuid())
+  message   String
+  createdAt DateTime      @default(now())
+  projectId String
+  project   ClientProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Ticket {
+  id        String          @id @default(cuid())
+  subject   String
+  status    TicketStatus    @default(OPEN)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  clientId  String
+  client    Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  messages  TicketMessage[]
+}
+
+model TicketMessage {
+  id        String   @id @default(cuid())
+  body      String
+  fromAdmin Boolean  @default(false)
+  createdAt DateTime @default(now())
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+}
+
+model SiteSetting {
+  id           Int    @id @default(1)
+  siteName     String @default("Tino Digital Studio")
+  tagline      String @default("Websites that help small businesses get found.")
+  contactEmail String @default("hello@example.com")
+  phone        String @default("")
+  location     String @default("")
+  instagram    String @default("")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  DECLINED
+}
+
+model BlogPost {
+  id          String    @id @default(cuid())
+  title       String
+  slug        String    @unique
+  excerpt     String    @default("")
+  content     String    @default("")
+  author      String    @default("")
+  category    String    @default("General")
+  published   Boolean   @default(false)
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// Amounts are stored in pence to avoid floating-point rounding.
+model Invoice {
+  id          String        @id @default(cuid())
+  number      Int           @unique @default(autoincrement())
+  description String
+  amountPence Int
+  status      InvoiceStatus @default(DRAFT)
+  dueDate     DateTime?
+  createdAt   DateTime      @default(now())
+  clientId    String
+  client      Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model Quote {
+  id          String      @id @default(cuid())
+  number      Int         @unique @default(autoincrement())
+  title       String
+  clientName  String
+  clientEmail String      @default("")
+  notes       String      @default("")
+  status      QuoteStatus @default(DRAFT)
+  validUntil  DateTime?
+  createdAt   DateTime    @default(now())
+  items       QuoteItem[]
+}
+
+model QuoteItem {
+  id          String @id @default(cuid())
+  description String
+  quantity    Int    @default(1)
+  unitPence   Int
+  quoteId     String
+  quote       Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+}
